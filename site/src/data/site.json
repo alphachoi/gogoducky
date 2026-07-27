@@ -1,0 +1,8 @@
+{
+  "_comment": "站点配置。wechat_id 填创始人微信号;qr_image 替换 public/images/wechat-qr.png 为真实二维码。",
+  "name": "gogoducky",
+  "tagline": "本周好货 · 加拿大直邮",
+  "wechat_id": "填写微信号",
+  "qr_image": "/images/wechat-qr.png",
+  "stale_days": 14
+}

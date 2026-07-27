@@ -1,0 +1,110 @@
+---
+// 微信内 H5:无自定义分享卡片(需认证服务号+大陆主体,拿不到),
+// 只做尽力而为的 title/og 标签 + 快速首屏(≤300KB,零外部资源)。
+import siteConfig from '../data/site.json';
+
+const { title, description = siteConfig.tagline } = Astro.props;
+---
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>
+
+<style is:global>
+  /* 设计令牌:纸白/墨棕/枫红/货签黄/松绿,深浅双主题(原型定稿) */
+  :root {
+    --paper: #FBF6EE;
+    --card: #FFFFFF;
+    --ink: #2B211A;
+    --mute: #77685A; /* ≥4.5:1 对比度(纸白底上最小字号也要够读) */
+    --line: #EAE0CF;
+    --maple: #A62B1F;
+    --maple-deep: #8C2318;
+    --maple-fg: #FDF4EA;
+    --tag: #FFD84D;
+    --tag-ink: #4A3800;
+    --pine: #3E6B4F;
+    --warn-bg: #F8E8DC;
+    --warn-ink: #8C3A16;
+    --info-bg: #EDF0E2;
+    --info-ink: #4C5530;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #1C1511;
+      --card: #2A2018;
+      --ink: #F2E9DE;
+      --mute: #A5937F;
+      --line: #3D3023;
+      --maple: #D6503E;
+      --maple-deep: #B03A2A;
+      --tag: #F5CE45;
+      --tag-ink: #3D2E00;
+      --pine: #85B294;
+      --warn-bg: #45261A;
+      --warn-ink: #F0B294;
+      --info-bg: #2E3322;
+      --info-ink: #C3CCA0;
+    }
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC',
+      'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    color: var(--ink);
+    background: var(--paper);
+  }
+  a { color: var(--maple); }
+  button { font-family: inherit; cursor: pointer; }
+  button:focus-visible, a:focus-visible {
+    outline: 2px solid var(--maple);
+    outline-offset: 2px;
+  }
+  main { max-width: 640px; margin: 0 auto; padding: 0 14px 96px; }
+
+  .masthead {
+    background: var(--maple);
+    color: var(--maple-fg);
+    padding: 18px max(16px, calc((100vw - 640px) / 2 + 16px)) 16px;
+  }
+  .masthead .brand-row {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px; letter-spacing: 0.18em; opacity: 0.92;
+  }
+  .masthead h1 {
+    font-size: 38px; font-weight: 900; letter-spacing: 0.02em;
+    line-height: 1.15; margin-top: 6px; text-wrap: balance;
+  }
+  .masthead h1 small { font-size: 17px; font-weight: 600; letter-spacing: 0.08em; margin-left: 8px; }
+  .masthead .meta-row {
+    display: flex; align-items: center; gap: 8px; margin-top: 10px;
+    font-size: 12px; flex-wrap: wrap;
+  }
+  .lock-pill {
+    background: var(--tag); color: var(--tag-ink);
+    font-weight: 700; padding: 2px 10px; border-radius: 999px;
+    font-variant-numeric: tabular-nums;
+  }
+  .meta-dim { opacity: 0.85; }
+
+  .colophon {
+    text-align: center; font-size: 12px; color: var(--mute);
+    margin-top: 26px; letter-spacing: 0.14em;
+  }
+</style>

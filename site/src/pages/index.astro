@@ -1,0 +1,54 @@
+---
+// 首页 = 最新一期。无已发布期时显示占位页(构建不失败)——
+// 占位页也要有行动出口:加微信 + 往期存档,不能是死胡同。
+import Layout from '../layouts/Layout.astro';
+import IssuePage from '../components/IssuePage.astro';
+import Masthead from '../components/Masthead.astro';
+import { latestIssue } from '../lib/issues.js';
+import siteConfig from '../data/site.json';
+
+const issue = latestIssue();
+const title = issue
+  ? `${siteConfig.name} ${issue.title} · 本周好货`
+  : `${siteConfig.name} · 本周好货`;
+---
+<Layout title={title}>
+  {issue ? (
+    <IssuePage issue={issue} isLatest={true} />
+  ) : (
+    <>
+      <Masthead title="新一期制作中">
+        <span class="meta-dim">好货正在路上 · 每周更新</span>
+      </Masthead>
+      <main class="placeholder">
+        <section class="wechat-cta">
+          <p>先加我微信,新一期出刊第一时间发你:</p>
+          <img src={siteConfig.qr_image} alt="创始人微信二维码(长按识别)" width="150" height="150" loading="eager" />
+          <p class="wechat-id">微信号:<b>{siteConfig.wechat_id}</b>(长按二维码识别)</p>
+        </section>
+        <p class="archive-cta"><a href="/archive/" data-ref-link>看往期都上过什么好货 →</a></p>
+        <p class="colophon">每周更新 · 微信个人转账 · 十年老店</p>
+      </main>
+      <script>
+        import { applyRefPassthrough } from '../lib/ref.js';
+        applyRefPassthrough();
+      </script>
+    </>
+  )}
+</Layout>
+
+<style>
+  .placeholder { padding-bottom: 28px; }
+  .wechat-cta {
+    margin-top: 20px; background: var(--card); border: 1px solid var(--line);
+    border-radius: 14px; padding: 20px 16px; text-align: center;
+  }
+  .wechat-cta p { font-size: 15px; color: var(--mute); }
+  .wechat-cta img {
+    display: block; margin: 14px auto 6px;
+    border-radius: 10px; border: 1px solid var(--line); background: #fff;
+  }
+  .wechat-id { font-size: 13px; }
+  .wechat-id b { color: var(--ink); }
+  .archive-cta { text-align: center; margin-top: 16px; font-size: 14px; }
+</style>
