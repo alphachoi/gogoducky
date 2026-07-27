@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# 数据与凭据 —— 绝不入 git(设计硬前置)
+homarket_scraper/homarket.db
+homarket_scraper/homarket.db-journal
+.env
+.env.*
+!.env.example
+
+# Node
+node_modules/
+dist/
+.astro/
+.wrangler/
+
+# 生成物与测试夹具(勿提交)
+site/functions/_manifest.json
+site/src/data/issues/issue-999.json
+site/src/data/issues/issue-998.json
+site/src/data/issues/issue-899.json
+
+# Playwright
+test-results/
+playwright-report/
+
+# OS
+.DS_Store
