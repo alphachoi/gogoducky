@@ -1,0 +1,127 @@
+---
+// 云端管理后台(/admin/)——由 Cloudflare Access 在边缘保护,页面本身不含任何秘密。
+// 能做:改已发布期刊文案/价格、下架、管邀请码、看归因报表。
+// 不能做(数据在创始人电脑本地):跑爬虫、浏览选品池、生成新期草稿、上架
+//(上架必须走本地 publish.py check 合规检查单——云端红线)。
+import Layout from '../../layouts/Layout.astro';
+import Masthead from '../../components/Masthead.astro';
+---
+<Layout title="gogoducky · 管理后台" description="管理后台">
+  <Fragment slot="head">
+    <meta name="robots" content="noindex, nofollow" />
+  </Fragment>
+  <Masthead title="管理后台">
+    <span class="meta-dim">改文案改价 · 下架 · 邀请码 · 报表</span>
+  </Masthead>
+  <main class="admin">
+    <nav class="tabs" id="tabs">
+      <button type="button" data-tab="stats" class="active">报表</button>
+      <button type="button" data-tab="issues">期刊</button>
+      <button type="button" data-tab="refs">邀请码</button>
+    </nav>
+
+    <section id="tab-stats" class="tab-panel">
+      <p class="hint">打开/复制是行为代理指标,成交以微信对账为准;direct 含裸链接与退役码流量。</p>
+      <div id="stats-body" class="card-block">加载中…</div>
+    </section>
+
+    <section id="tab-issues" class="tab-panel" hidden>
+      <div id="issues-list" class="card-block">加载中…</div>
+      <div id="issue-editor" hidden></div>
+    </section>
+
+    <section id="tab-refs" class="tab-panel" hidden>
+      <p class="hint">只有码,没有客户信息(码→客户对照只在你本地表格)。删掉的码旧链接流量自动计入 direct,不丢。</p>
+      <div id="refs-body" class="card-block">加载中…</div>
+    </section>
+
+    <div class="toast" id="toast"></div>
+  </main>
+</Layout>
+
+<script src="../../scripts/admin-client.js"></script>
+
+<style>
+  .admin { padding-bottom: 40px; }
+  .tabs {
+    display: flex; gap: 8px; margin: 14px 0;
+    position: sticky; top: 0; background: var(--paper); padding: 8px 0; z-index: 5;
+  }
+  .tabs button {
+    flex: 1; padding: 10px 0; font-size: 15px; font-weight: 700;
+    border: 1.5px solid var(--line); border-radius: 999px;
+    background: var(--card); color: var(--mute);
+  }
+  .tabs button.active { border-color: var(--maple); color: var(--maple); }
+  .hint { font-size: 13px; color: var(--mute); margin-bottom: 10px; }
+  .card-block {
+    background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    padding: 14px 16px; font-size: 14px;
+  }
+  .toast {
+    position: fixed; left: 50%; bottom: 12%; transform: translateX(-50%);
+    background: var(--ink); color: var(--paper);
+    font-size: 13.5px; padding: 9px 18px; border-radius: 999px;
+    opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 20;
+    max-width: 88%;
+  }
+  .toast.show { opacity: 1; }
+
+  /* 由 admin-client.js 动态生成的元素样式(global,组件 scoped 摸不到) */
+  :global(.admin table) { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  :global(.admin th), :global(.admin td) {
+    text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); font-size: 13.5px;
+  }
+  :global(.admin th) { color: var(--mute); font-size: 12px; letter-spacing: 0.06em; }
+  :global(.admin .issue-row) {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 12px 4px; border-bottom: 1px solid var(--line); cursor: pointer;
+  }
+  :global(.admin .issue-row b) { font-size: 15px; }
+  :global(.admin .issue-row .sub) { font-size: 12.5px; color: var(--mute); }
+  :global(.admin .pill) {
+    font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 999px; flex: none;
+  }
+  :global(.admin .pill.on) { background: var(--tag); color: var(--tag-ink); }
+  :global(.admin .pill.off) { background: var(--paper); color: var(--mute); border: 1px solid var(--line); }
+  :global(.admin form.editor) { display: grid; gap: 12px; margin-top: 14px; }
+  :global(.admin .editor .card-block) { display: grid; gap: 8px; }
+  :global(.admin label) { font-size: 12.5px; color: var(--mute); display: grid; gap: 4px; }
+  :global(.admin input), :global(.admin textarea) {
+    width: 100%; padding: 10px; font-size: 16px; font-family: inherit;
+    color: var(--ink); background: var(--paper);
+    border: 1px solid var(--line); border-radius: 8px;
+  }
+  :global(.admin .row-actions) { display: flex; gap: 10px; }
+  :global(.admin .btn-primary) {
+    flex: 1; background: var(--maple); color: var(--maple-fg); border: none;
+    border-radius: 999px; padding: 13px 20px; font-size: 15px; font-weight: 700;
+  }
+  :global(.admin .btn-primary:disabled) { opacity: 0.4; }
+  :global(.admin .btn-plain) {
+    background: var(--paper); color: var(--mute); border: 1px solid var(--line);
+    border-radius: 999px; padding: 13px 18px; font-size: 14px;
+  }
+  :global(.admin .btn-danger) {
+    background: transparent; color: var(--warn-ink); border: 1.5px solid var(--warn-ink);
+    border-radius: 999px; padding: 10px 16px; font-size: 13.5px; font-weight: 600;
+  }
+  :global(.admin .ref-row) {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 9px 4px; border-bottom: 1px solid var(--line);
+    font-family: ui-monospace, Menlo, monospace; font-size: 14px;
+  }
+  :global(.admin .ref-row button) {
+    background: none; border: none; color: var(--warn-ink); font-size: 13px; padding: 4px 8px;
+  }
+  :global(.admin .add-ref) { display: flex; gap: 8px; margin-top: 12px; }
+  :global(.admin .add-ref input) { flex: 1; }
+  :global(.admin .add-ref button) {
+    background: var(--maple); color: var(--maple-fg); border: none;
+    border-radius: 8px; padding: 0 18px; font-size: 14px; font-weight: 700;
+  }
+  :global(.admin .error-box) {
+    background: var(--warn-bg); color: var(--warn-ink);
+    border-radius: 10px; padding: 10px 14px; font-size: 13.5px;
+  }
+</style>
