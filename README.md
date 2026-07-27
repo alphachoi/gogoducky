@@ -7,7 +7,7 @@
 ```
 homarket_scraper/   选品池管道(本地运行,不部署)
   main.py             每周抓取入口(批次模型 + fail-loud)
-  scraper.py          DrissionPage 抓取(分页抓全)
+  scraper.py          DrissionPage 抓取(分页抓全;每分类上限 50 页,触顶本轮记 partial)
   database.py         SQLite 选品池(变价/下架检测、黑名单隔离)
   blacklist.py        药品关键词黑名单(入池层拦截,P4 红线;关键词唯一数据源
                       是 site/src/data/blacklist-keywords.json,站点构建层共用同一清单)
@@ -27,7 +27,7 @@ docs/               微信真机检查单、指标基线模板
 
 ```bash
 cd homarket_scraper
-# 0. 首次:cp .env.example .env 填凭据;pip install -r requirements.txt
+# 0. 首次:cp .env.example .env 填凭据;python3 -m venv venv && venv/bin/pip install -r requirements.txt
 venv/bin/python main.py                                # 1. 抓一轮(批次入池)
 venv/bin/python publish.py list                        # 2. 看可入刊集合(变价有标)
 venv/bin/python publish.py draft --issue 12 --ids 3,7,12 --fx 5.20   # 3. 生成草稿+图片
@@ -35,11 +35,11 @@ venv/bin/python publish.py draft --issue 12 --ids 3,7,12 --fx 5.20   # 3. 生成
 #    汇率超合理区间会拒绝,确认没打错位后加 --allow-unusual-fx
 # 4. 手改 site/src/data/issues/issue-012.json 补卷首语(greeting)/规格/时效/备注/角标(deal)
 venv/bin/python publish.py check --issue 12            # 5. 合规检查单(勾不全不发布)
-git add site/ && git commit && git push                # 6. push 即部署
+cd .. && git add site/ && git commit && git push       # 6. 回仓库根;push 即部署
 # 7. 发版前过一遍 docs/wechat-checklist.md
 ```
 
-发新邀请码:`site/src/data/refs.json` 加一行 + push;码→客户映射只记在本地表格。
+发新邀请码:`site/src/data/refs.json` 加一行 + push;码→客户映射只记在本地表格。码限 `[A-Za-z0-9_-]`、最长 24 位,不合规或不在白名单的码事件静默降级计入 `direct`。
 
 ## 测试
 

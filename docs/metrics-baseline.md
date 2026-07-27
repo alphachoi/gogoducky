@@ -37,3 +37,5 @@ npx wrangler d1 execute gogoducky-events --remote --command \
 npx wrangler d1 execute gogoducky-events --remote --command \
   "SELECT ref, type, COUNT(*) n FROM events WHERE type LIKE 'copy%' AND ts > datetime('now','-7 days') GROUP BY ref, type"
 ```
+
+事件类型口径:`copy` = 自动复制成功;`copy_fallback` = 自动复制失败、只弹出了长按复制框(用户未必真复制了)。读数时两者分开看,别按 `copy%` 合计当成复制次数。
