@@ -1,0 +1,23 @@
+{
+  "issue": 998,
+  "title": "第998期(E2E过期夹具)",
+  "published_at": "2026-01-10",
+  "lock_until": "2026-01-17",
+  "fx_rate": 5.2,
+  "greeting": "",
+  "published": true,
+  "items": [
+    {
+      "id": "x1",
+      "name": "过期测试商品",
+      "image": null,
+      "price_cny": 120,
+      "price_cad_cents": 1799,
+      "spec": "",
+      "eta": "",
+      "note": "",
+      "deal": "",
+      "compliance_confirmed": true
+    }
+  ]
+}
