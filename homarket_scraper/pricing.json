@@ -1,0 +1,6 @@
+{
+  "_comment": "定价三数字由创始人填。service_fee_rate: 服务费率(如 0.15 = 15%);shipping_share_cny: 每件运费分摊(人民币元);min_margin_rate: 毛利率兜底阈值(如 0.10),入刊时低于此值标红拒入刊。汇率在每期生成草稿时用 --fx 按当日填。",
+  "service_fee_rate": null,
+  "shipping_share_cny": null,
+  "min_margin_rate": null
+}
