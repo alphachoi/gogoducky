@@ -1,6 +1,14 @@
 # Cloudflare Pages 配置。首次部署前:
 #   npx wrangler d1 create gogoducky-events   # 把返回的 database_id 填到下面
 #   npx wrangler d1 execute gogoducky-events --remote --file=schema.sql
+#
+# 云端后台(/admin)还需要在 Pages 项目 Settings → Environment variables 配置
+# (都是 Secret,绝不写进本文件):
+#   GITHUB_TOKEN  fine-grained token,仅本仓库 Contents 读写权限
+#   GITHUB_REPO   如 alphachoi/gogoducky
+#   ACCESS_AUD    Cloudflare Access 应用的 Application Audience (AUD) 标签
+# 并在 Zero Trust → Access 建应用覆盖两条路径:/admin* 与 /api/admin*。
+# 本地调试后台:npx wrangler pages dev dist --binding DEV_MODE=1 --binding GITHUB_TOKEN=... --binding GITHUB_REPO=...
 name = "gogoducky"
 pages_build_output_dir = "dist"
 compatibility_date = "2026-07-01"
