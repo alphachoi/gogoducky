@@ -1,0 +1,4 @@
+DrissionPage
+Pillow
+requests
+pytest
