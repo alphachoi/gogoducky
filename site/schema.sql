@@ -10,3 +10,5 @@ CREATE TABLE IF NOT EXISTS events (
 );
 CREATE INDEX IF NOT EXISTS idx_events_ip_ts ON events(ip, ts);
 CREATE INDEX IF NOT EXISTS idx_events_ref ON events(ref, type, issue);
+-- 后台报表按时间窗口查(ts 范围),没有这个索引就是全表扫
+CREATE INDEX IF NOT EXISTS idx_events_ts ON events(ts);

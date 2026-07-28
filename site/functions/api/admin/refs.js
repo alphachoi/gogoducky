@@ -1,12 +1,10 @@
 // GET/PUT /api/admin/refs — 邀请码白名单管理(只有码,无客户信息;
 // 码→客户映射仍只存创始人本地表格)。退役的码删掉即可:其旧链接事件
 // 会自动降级计入 direct,流量不丢。
-import { ghGetFile, ghPutFile, json, REFS_PATH, requireAccess } from './_lib.js';
-
-const REF_RE = /^[a-zA-Z0-9_-]{1,24}$/;
+import { ghGetFile, ghPutFile, isValidRef, json, REFS_PATH, requireAccess } from './_lib.js';
 
 export async function onRequestGet({ request, env }) {
-  const denied = requireAccess(request, env);
+  const denied = await requireAccess(request, env);
   if (denied) return denied;
   try {
     const file = await ghGetFile(env, REFS_PATH);
@@ -20,7 +18,7 @@ export async function onRequestGet({ request, env }) {
 }
 
 export async function onRequestPut({ request, env }) {
-  const denied = requireAccess(request, env);
+  const denied = await requireAccess(request, env);
   if (denied) return denied;
 
   let body;
@@ -33,7 +31,7 @@ export async function onRequestPut({ request, env }) {
   if (!Array.isArray(refs)) return json({ error: 'refs 必须是数组' }, 400);
   if (typeof sha !== 'string' || !sha) return json({ error: '缺少 sha(并发保护)' }, 400);
   for (const ref of refs) {
-    if (typeof ref !== 'string' || !REF_RE.test(ref)) {
+    if (!isValidRef(ref)) {
       return json({ error: `邀请码不合法:${ref}(限 a-zA-Z0-9_-,最长 24 位)` }, 400);
     }
   }

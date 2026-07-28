@@ -1,13 +1,14 @@
 // 云端后台共享层:认证、GitHub contents API、UTF-8 base64、关键词筛查。
 //
-// 安全模型:
-// - 第一道闸在边缘:Cloudflare Access 应用必须覆盖 /admin* 与 /api/admin*
-//   (部署文档有配置步骤),未登录请求根本到不了这里。
-// - 本层做纵深防御:校验 Access JWT 头存在且 aud 匹配(不做签名验证——
-//   边缘已强制;这里防的是 Access 应用被误删/漏配路径)。
-// - fail-closed:ACCESS_AUD 未配置且非本地开发(DEV_MODE)时一律 403,
-//   「忘了配 Access 就裸奔」这条路不存在。
-import blacklistData from '../../../src/data/blacklist-keywords.json';
+// 安全模型(必须自立,不能只依赖边缘):
+// - Cloudflare Access 在边缘拦截自定义域上的 /admin* 与 /api/admin*。
+// - 但 Pages 同时把同一份部署(带 GITHUB_TOKEN 绑定)挂在 <project>.pages.dev
+//   和分支预览域上,那里没有 Access 强制——所以本层必须真验签,
+//   否则任何知道 AUD 标签(它不是秘密)的人都能伪造 JWT 拿到仓库写权限。
+// - 因此:JWKS 验签(RS256)+ aud/exp/iss 校验 + 主机白名单,全部 fail-closed。
+import { blacklistHit, isRealDate, isValidRef } from '../../../src/lib/blacklist.js';
+
+export { blacklistHit, isRealDate, isValidRef };
 
 export function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -16,20 +17,89 @@ export function json(data, status = 200) {
   });
 }
 
-export function requireAccess(request, env) {
-  if (env.DEV_MODE === '1') return null; // 仅本地 wrangler pages dev --binding DEV_MODE=1
+// JWKS 缓存(Worker 实例内存活;Access 轮换密钥后最迟 1 小时自动刷新)
+let jwksCache = { keys: null, fetchedAt: 0 };
+const JWKS_TTL_MS = 60 * 60 * 1000;
+
+async function getJwks(teamDomain, { force = false } = {}) {
+  const now = Date.now();
+  if (!force && jwksCache.keys && now - jwksCache.fetchedAt < JWKS_TTL_MS) return jwksCache.keys;
+  const resp = await fetch(`https://${teamDomain}/cdn-cgi/access/certs`);
+  if (!resp.ok) throw new Error(`JWKS fetch failed: ${resp.status}`);
+  const { keys } = await resp.json();
+  jwksCache = { keys, fetchedAt: now };
+  return keys;
+}
+
+// 密钥轮换后新 kid 不在缓存里:强制刷新一次再判,
+// 否则每次轮换都要把创始人挡在门外最多一小时
+async function findKey(teamDomain, kid) {
+  let keys = await getJwks(teamDomain);
+  let jwk = keys.find((k) => k.kid === kid);
+  if (!jwk) {
+    keys = await getJwks(teamDomain, { force: true });
+    jwk = keys.find((k) => k.kid === kid);
+  }
+  return jwk;
+}
+
+function b64urlToBytes(b64url) {
+  const b64 = b64url.replace(/-/g, '+').replace(/_/g, '/');
+  const bin = atob(b64 + '='.repeat((4 - (b64.length % 4)) % 4));
+  return Uint8Array.from(bin, (c) => c.charCodeAt(0));
+}
+
+// 生产部署只接受自定义域;pages.dev / 预览域不受 Access 保护,一律拒绝。
+function hostAllowed(request, env) {
+  if (!env.ADMIN_HOST) return false;
+  const host = new URL(request.url).hostname;
+  return host === env.ADMIN_HOST;
+}
+
+export async function requireAccess(request, env) {
+  // DEV_MODE 只在非 Pages 环境(本地 wrangler pages dev)生效——
+  // 在 Pages 面板误设也解锁不了线上部署
+  if (env.DEV_MODE === '1' && !env.CF_PAGES) return null;
+
+  if (!hostAllowed(request, env)) {
+    return json({ error: '此域名不提供后台(仅自定义域,Access 保护)' }, 403);
+  }
   const jwt = request.headers.get('cf-access-jwt-assertion');
-  if (!env.ACCESS_AUD || !jwt) {
+  if (!env.ACCESS_AUD || !env.ACCESS_TEAM_DOMAIN || !jwt) {
     return json({ error: '未认证(Access 未配置或未登录)' }, 403);
   }
+
+  const parts = jwt.split('.');
+  if (parts.length !== 3) return json({ error: 'Access JWT 格式错误' }, 403);
+
   try {
-    const payload = JSON.parse(b64urlDecodeUtf8(jwt.split('.')[1]));
+    const header = JSON.parse(b64decodeUtf8(parts[0].replace(/-/g, '+').replace(/_/g, '/')));
+    const payload = JSON.parse(b64urlDecodeUtf8(parts[1]));
+
+    const jwk = await findKey(env.ACCESS_TEAM_DOMAIN, header.kid);
+    if (!jwk) return json({ error: 'Access 签名密钥未知' }, 403);
+
+    const key = await crypto.subtle.importKey(
+      'jwk', jwk, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']
+    );
+    const valid = await crypto.subtle.verify(
+      'RSASSA-PKCS1-v1_5', key,
+      b64urlToBytes(parts[2]),
+      new TextEncoder().encode(`${parts[0]}.${parts[1]}`)
+    );
+    if (!valid) return json({ error: 'Access 签名无效' }, 403);
+
     const aud = Array.isArray(payload.aud) ? payload.aud : [payload.aud];
-    if (!aud.includes(env.ACCESS_AUD)) {
-      return json({ error: 'Access aud 不匹配' }, 403);
+    if (!aud.includes(env.ACCESS_AUD)) return json({ error: 'Access aud 不匹配' }, 403);
+    if (payload.iss !== `https://${env.ACCESS_TEAM_DOMAIN}`) {
+      return json({ error: 'Access 签发方不匹配' }, 403);
     }
-  } catch {
-    return json({ error: 'Access JWT 不可解析' }, 403);
+    if (!payload.exp || payload.exp * 1000 <= Date.now()) {
+      return json({ error: 'Access 登录已过期,请重新登录' }, 403);
+    }
+  } catch (e) {
+    console.error('access verify failed:', e);
+    return json({ error: 'Access 校验失败' }, 403);
   }
   return null;
 }
@@ -62,12 +132,23 @@ function ghHeaders(env) {
   };
 }
 
+// GitHub 对私有仓库的鉴权失败也返回 404(防信息泄露),不能一律当"文件不存在":
+// token 失效会伪装成"该期不存在",配错时排查无从下手。
+async function is404Auth(env) {
+  const probe = await fetch(`https://api.github.com/repos/${env.GITHUB_REPO}`,
+    { headers: ghHeaders(env) });
+  return !probe.ok;
+}
+
 export async function ghGetFile(env, path) {
   const resp = await fetch(
     `https://api.github.com/repos/${env.GITHUB_REPO}/contents/${path}?ref=main`,
     { headers: ghHeaders(env) }
   );
-  if (resp.status === 404) return null;
+  if (resp.status === 404) {
+    if (await is404Auth(env)) throw new Error('GitHub token 无效或权限不足');
+    return null;
+  }
   if (!resp.ok) throw new Error(`GitHub GET ${path}: ${resp.status}`);
   const file = await resp.json();
   return { content: b64decodeUtf8(file.content), sha: file.sha };
@@ -78,7 +159,10 @@ export async function ghListDir(env, path) {
     `https://api.github.com/repos/${env.GITHUB_REPO}/contents/${path}?ref=main`,
     { headers: ghHeaders(env) }
   );
-  if (resp.status === 404) return [];
+  if (resp.status === 404) {
+    if (await is404Auth(env)) throw new Error('GitHub token 无效或权限不足');
+    return [];
+  }
   if (!resp.ok) throw new Error(`GitHub LIST ${path}: ${resp.status}`);
   return resp.json();
 }
@@ -102,27 +186,6 @@ export async function ghPutFile(env, path, content, sha, message) {
   }
   if (!resp.ok) throw new Error(`GitHub PUT ${path}: ${resp.status}`);
   return resp.json();
-}
-
-// ---- 关键词筛查(与入池层/构建层同一清单、同一归一化)----
-const STRIP_RE = /[\s.\-_·•'']+/g;
-const normalize = (text) => String(text ?? '').toLowerCase().replace(STRIP_RE, '');
-const NORMALIZED_KEYWORDS = blacklistData.keywords.map((k) => [normalize(k), k]);
-
-export function blacklistHit(text) {
-  const normalized = normalize(text);
-  if (!normalized) return null;
-  for (const [norm, original] of NORMALIZED_KEYWORDS) {
-    if (normalized.includes(norm)) return original;
-  }
-  return null;
-}
-
-export function isRealDate(iso) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso ?? '')) return false;
-  const [y, m, d] = iso.split('-').map(Number);
-  const date = new Date(Date.UTC(y, m - 1, d));
-  return date.getUTCFullYear() === y && date.getUTCMonth() === m - 1 && date.getUTCDate() === d;
 }
 
 export const ISSUES_DIR = 'site/src/data/issues';
