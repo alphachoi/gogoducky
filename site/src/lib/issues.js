@@ -4,30 +4,12 @@
 // 2. 全部公开文本重过药品黑名单——检查单盖章后再改文案,这里会拦下
 //    (与 Python 入池层共用同一份关键词清单,永不漂移);
 // 3. 日期真实存在(2026-02-31 这类会被 JS 悄悄归一化成三月的假日期拦下)。
-import blacklistData from '../data/blacklist-keywords.json';
+// 筛查实现与后台端点共用同一模块(src/lib/blacklist.js),两侧不可能漂移
+import { blacklistHit, isRealDate } from './blacklist.js';
+
+export { blacklistHit, isRealDate };
 
 const modules = import.meta.glob('../data/issues/issue-*.json', { eager: true });
-
-// 与 homarket_scraper/blacklist.py 相同的归一化 + 子串匹配
-const STRIP_RE = /[\s.\-_·•'']+/g;
-const normalize = (text) => String(text ?? '').toLowerCase().replace(STRIP_RE, '');
-const NORMALIZED_KEYWORDS = blacklistData.keywords.map((k) => [normalize(k), k]);
-
-export function blacklistHit(text) {
-  const normalized = normalize(text);
-  if (!normalized) return null;
-  for (const [norm, original] of NORMALIZED_KEYWORDS) {
-    if (normalized.includes(norm)) return original;
-  }
-  return null;
-}
-
-export function isRealDate(iso) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso ?? '')) return false;
-  const [y, m, d] = iso.split('-').map(Number);
-  const date = new Date(Date.UTC(y, m - 1, d));
-  return date.getUTCFullYear() === y && date.getUTCMonth() === m - 1 && date.getUTCDate() === d;
-}
 
 export function loadIssues() {
   const issues = Object.values(modules)
