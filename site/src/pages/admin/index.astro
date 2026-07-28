@@ -48,11 +48,12 @@ import Masthead from '../../components/Masthead.astro';
     position: sticky; top: 0; background: var(--paper); padding: 8px 0; z-index: 5;
   }
   .tabs button {
-    flex: 1; padding: 10px 0; font-size: 15px; font-weight: 700;
+    flex: 1; min-height: 44px; padding: 12px 0; font-size: 15px; font-weight: 700;
     border: 1.5px solid var(--line); border-radius: 999px;
     background: var(--card); color: var(--mute);
   }
   .tabs button.active { border-color: var(--maple); color: var(--maple); }
+  .tabs button:active { filter: brightness(0.95); }
   .hint { font-size: 13px; color: var(--mute); margin-bottom: 10px; }
   .card-block {
     background: var(--card); border: 1px solid var(--line); border-radius: 14px;
@@ -72,11 +73,15 @@ import Masthead from '../../components/Masthead.astro';
   :global(.admin th), :global(.admin td) {
     text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); font-size: 13.5px;
   }
+  /* 数字列右对齐,tabular-nums 才真的能对比着扫 */
+  :global(.admin th:not(:first-child)), :global(.admin td:not(:first-child)) { text-align: right; }
   :global(.admin th) { color: var(--mute); font-size: 12px; letter-spacing: 0.06em; }
+  :global(.admin h2) { font-size: 14px; font-weight: 800; letter-spacing: 0.04em; }
   :global(.admin .issue-row) {
     display: flex; align-items: center; justify-content: space-between; gap: 10px;
-    padding: 12px 4px; border-bottom: 1px solid var(--line); cursor: pointer;
+    padding: 14px 4px; min-height: 44px; border-bottom: 1px solid var(--line); cursor: pointer;
   }
+  :global(.admin .issue-row:active) { background: var(--paper); }
   :global(.admin .issue-row b) { font-size: 15px; }
   :global(.admin .issue-row .sub) { font-size: 12.5px; color: var(--mute); }
   :global(.admin .pill) {
@@ -98,28 +103,39 @@ import Masthead from '../../components/Masthead.astro';
     border-radius: 999px; padding: 13px 20px; font-size: 15px; font-weight: 700;
   }
   :global(.admin .btn-primary:disabled) { opacity: 0.4; }
+  :global(.admin .btn-primary:active) { filter: brightness(0.92); }
   :global(.admin .btn-plain) {
     background: var(--paper); color: var(--mute); border: 1px solid var(--line);
     border-radius: 999px; padding: 13px 18px; font-size: 14px;
   }
+  :global(.admin .btn-plain:active) { background: var(--line); }
   :global(.admin .btn-danger) {
     background: transparent; color: var(--warn-ink); border: 1.5px solid var(--warn-ink);
-    border-radius: 999px; padding: 10px 16px; font-size: 13.5px; font-weight: 600;
+    border-radius: 999px; padding: 12px 16px; min-height: 44px;
+    font-size: 13.5px; font-weight: 600;
   }
+  :global(.admin .btn-danger:active) { background: var(--warn-bg); }
   :global(.admin .ref-row) {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 9px 4px; border-bottom: 1px solid var(--line);
+    padding: 4px; border-bottom: 1px solid var(--line);
     font-family: ui-monospace, Menlo, monospace; font-size: 14px;
   }
+  /* 退役是破坏性操作,热区必须够大——25px 的字按钮在手机上是误触制造机 */
   :global(.admin .ref-row button) {
-    background: none; border: none; color: var(--warn-ink); font-size: 13px; padding: 4px 8px;
+    background: none; border: none; color: var(--warn-ink); font-size: 13px;
+    min-height: 44px; min-width: 44px; padding: 10px 12px;
   }
+  :global(.admin .ref-row button:active) { background: var(--warn-bg); border-radius: 8px; }
+  :global(.admin .ref-row button:disabled) { opacity: 0.4; }
   :global(.admin .add-ref) { display: flex; gap: 8px; margin-top: 12px; }
   :global(.admin .add-ref input) { flex: 1; }
   :global(.admin .add-ref button) {
     background: var(--maple); color: var(--maple-fg); border: none;
-    border-radius: 8px; padding: 0 18px; font-size: 14px; font-weight: 700;
+    border-radius: 8px; padding: 0 18px; min-height: 44px;
+    font-size: 14px; font-weight: 700;
   }
+  :global(.admin .add-ref button:active) { filter: brightness(0.92); }
+  :global(.admin .add-ref button:disabled) { opacity: 0.4; }
   :global(.admin .error-box) {
     background: var(--warn-bg); color: var(--warn-ink);
     border-radius: 10px; padding: 10px 14px; font-size: 13.5px;

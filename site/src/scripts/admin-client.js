@@ -1,6 +1,8 @@
 // 管理后台客户端。所有请求同源打 /api/admin/*(Access 在边缘拦截未登录)。
 // 编辑走乐观并发(sha):被别处改过会 409,刷新重试,绝不静默覆盖。
 
+import { aggregateByRef, esc } from '../lib/admin-format.js';
+
 const $ = (sel) => document.querySelector(sel);
 
 let toastTimer;
@@ -12,6 +14,16 @@ function toast(msg) {
   toastTimer = setTimeout(() => el.classList.remove('show'), 3200);
 }
 
+// 错误要留在屏幕上:冲突/校验失败的提示读一遍要几秒,toast 3.2 秒会跑掉,
+// 跑掉之后编辑器还攥着旧 sha,用户不知道为什么一直存不上
+function showError(container, message) {
+  const box = document.createElement('div');
+  box.className = 'error-box';
+  box.textContent = message;
+  container.prepend(box);
+  box.scrollIntoView({ block: 'center', behavior: 'smooth' });
+}
+
 async function api(path, options = {}) {
   const resp = await fetch(`/api/admin/${path}`, {
     ...options,
@@ -20,12 +32,6 @@ async function api(path, options = {}) {
   const data = await resp.json().catch(() => ({}));
   if (!resp.ok) throw new Error(data.error || `请求失败(${resp.status})`);
   return data;
-}
-
-function esc(text) {
-  const div = document.createElement('div');
-  div.textContent = String(text ?? '');
-  return div.innerHTML;
 }
 
 // ===== Tab 切换 =====
@@ -44,13 +50,7 @@ async function loadStats() {
   try {
     const s = await api('stats');
     const refTable = (rows) => {
-      const byRef = {};
-      for (const r of rows) {
-        byRef[r.ref] = byRef[r.ref] || { open: 0, copy: 0, copy_fallback: 0 };
-        byRef[r.ref][r.type] = r.n;
-      }
-      const entries = Object.entries(byRef).sort((a, b) =>
-        (b[1].copy + b[1].copy_fallback) - (a[1].copy + a[1].copy_fallback));
+      const entries = aggregateByRef(rows);
       if (!entries.length) return '<p>暂无数据</p>';
       return `<table><tr><th>码</th><th>打开</th><th>复制</th><th>降级复制</th></tr>` +
         entries.map(([ref, v]) =>
@@ -58,9 +58,9 @@ async function loadStats() {
         ).join('') + '</table>';
     };
     box.innerHTML = `
-      <h3>近 7 天(按码)</h3>${refTable(s.by_ref_7d)}
-      <h3 style="margin-top:16px">近 28 天(按码)</h3>${refTable(s.by_ref_28d)}
-      <h3 style="margin-top:16px">近 28 天(按期)</h3>
+      <h2>近 7 天(按码)</h2>${refTable(s.by_ref_7d)}
+      <h2 style="margin-top:16px">近 28 天(按码)</h2>${refTable(s.by_ref_28d)}
+      <h2 style="margin-top:16px">近 28 天(按期)</h2>
       <table><tr><th>期</th><th>类型</th><th>次数</th></tr>${
         s.by_issue_28d.map((r) => `<tr><td>${r.issue}</td><td>${esc(r.type)}</td><td>${r.n}</td></tr>`).join('')
       }</table>`;
@@ -98,6 +98,7 @@ async function openEditor(n) {
   editor.hidden = false;
   editor.innerHTML = '加载中…';
   $('#issues-list').hidden = true;
+  window.scrollTo({ top: 0 }); // 长列表滚到一半点进来,不能停在编辑器中段
   try {
     const { data, sha } = await api(`issue?n=${n}`);
     editor.innerHTML = `
@@ -170,9 +171,13 @@ async function submit(issue, sha, changes, btn) {
     });
     toast(result.note || '已提交');
     closeEditor();
+    // 作废合规勾选/自动下架这类后果必须留在屏幕上,toast 会跑掉
+    (result.warnings || []).forEach((w) => showError($('#issues-list'), w));
     loadIssues();
   } catch (e) {
-    toast(e.message);
+    // 冲突/校验失败要看得见、看得完:留在编辑器里,给出下一步
+    const hint = e.message.includes('刷新') ? `${e.message}(点「返回」再进来即可)` : e.message;
+    showError($('#issue-editor'), hint);
     btn.disabled = false;
   }
 }
@@ -181,6 +186,7 @@ function closeEditor() {
   $('#issue-editor').hidden = true;
   $('#issue-editor').innerHTML = '';
   $('#issues-list').hidden = false;
+  window.scrollTo({ top: 0 });
 }
 
 // ===== 邀请码 =====
@@ -214,14 +220,28 @@ function renderRefs() {
     btn.addEventListener('click', async () => {
       const ref = btn.dataset.del;
       if (!confirm(`退役邀请码 ${ref}?其旧链接流量将计入 direct,不再归到这个码名下。`)) return;
+      btn.disabled = true;
       await saveRefs(refsList.filter((r) => r !== ref));
     }));
-  $('#add-ref-btn').addEventListener('click', async () => {
+
+  const addBtn = $('#add-ref-btn');
+  addBtn.addEventListener('click', async () => {
     const value = $('#new-ref').value.trim();
     if (!value) return;
+    if (!REF_PATTERN.test(value)) {
+      showError(box, `邀请码不合法:${value}(限 a-zA-Z0-9_-,最长 24 位)`);
+      return;
+    }
+    if (refsList.includes(value)) {
+      showError(box, `邀请码已存在:${value}`);
+      return;
+    }
+    addBtn.disabled = true; // 慢网双击会打两次 PUT,第二次必 409
     await saveRefs([...refsList, value]);
   });
 }
+
+const REF_PATTERN = /^[a-zA-Z0-9_-]{1,24}$/;
 
 async function saveRefs(next) {
   try {
@@ -232,7 +252,8 @@ async function saveRefs(next) {
     toast(result.note || '已提交');
     loadRefs();
   } catch (e) {
-    toast(e.message);
+    showError($('#refs-body'), e.message);
+    loadRefs(); // 重新拉取,拿到新 sha,免得后续操作全部 409
   }
 }
 
