@@ -1,5 +1,5 @@
 {
-  "_comment": "药品/器械关键词黑名单——唯一数据源。Python 入池层(homarket_scraper/blacklist.py)与站点构建层(site/src/lib/issues.js)共用;两侧都做归一化(小写、去空格点横线)后子串匹配。改关键词只改这里。",
+  "_comment": "药品/器械关键词黑名单——唯一数据源。两个消费者:Python 入池层(homarket_scraper/blacklist.py)与 JS 侧 site/src/lib/blacklist.js(站点构建层 issues.js 和后台端点 functions/api/admin/_lib.js 都从它导入)。两语言各做一次归一化(小写、去空格点横线)后子串匹配——改归一化必须两侧同步。改关键词只改这里。",
   "keywords": [
     "药", "藥", "感冒", "退烧", "退燒", "止咳", "止痛", "镇痛", "消炎",
     "抗生素", "抗菌素", "处方", "處方", "口服液", "滴剂", "滴劑", "栓剂",

@@ -39,7 +39,29 @@ cd .. && git add site/ && git commit && git push       # 6. 回仓库根;push �
 # 7. 发版前过一遍 docs/wechat-checklist.md
 ```
 
-发新邀请码:`site/src/data/refs.json` 加一行 + push;码→客户映射只记在本地表格。码限 `[A-Za-z0-9_-]`、最长 24 位,不合规或不在白名单的码事件静默降级计入 `direct`。
+发新邀请码:`site/src/data/refs.json` 加一行 + push(或在云端后台发码);码→客户映射只记在本地表格。码限 `[A-Za-z0-9_-]`、最长 24 位,不合规或不在白名单的码事件静默降级计入 `direct`。
+
+## 云端后台(/admin)
+
+手机可用的管理界面(Cloudflare Access 邮箱验证码登录),覆盖**出刊之后**的管理:
+
+- 改已发布期刊的文案(卷首语/规格/时效/备注/角标)和价格、延锁价——提交走 GitHub API,约 1 分钟自动重建生效
+- **下架**某期(上架不行:上架必须在本地过 `publish.py check` 合规检查单,云端红线)
+- 邀请码发码/退役(退役码旧链接流量自动计入 direct)
+- 归因报表(按码 7/28 天、按期,直读 D1)
+
+做不了的(数据在本地):跑爬虫、看选品池、生成新期草稿——仍走上面的每周工作流。所有云端文案编辑在服务端和构建层都重过药品关键词筛查。
+
+**启用步骤**(部署后一次性):
+1. GitHub 建 fine-grained token(仅本仓库、仅 Contents 读写)
+2. Cloudflare Zero Trust → Access → Applications 建自托管应用,路径覆盖 `你的域名/admin*` 和 `你的域名/api/admin*`,策略=你的邮箱;记下 Application Audience (AUD) 和团队域名(形如 `你的团队.cloudflareaccess.com`)
+3. Pages 项目 → Settings → Environment variables 加 Secret:
+   - `GITHUB_TOKEN`、`GITHUB_REPO`(如 `alphachoi/gogoducky`)
+   - `ACCESS_AUD`、`ACCESS_TEAM_DOMAIN`(验签用)
+   - `ADMIN_HOST`(你的自定义域,如 `shop.example.com`)
+4. 打开 `你的域名/admin/`,邮箱收验证码登录
+
+**后台自身就是一道闸,不只靠边缘**:每个请求都用 Cloudflare 的 JWKS 验 Access 令牌签名,并校验 aud/签发方/过期;`ADMIN_HOST` 之外的域名(`*.pages.dev`、分支预览域——那里没有 Access 保护)一律 403。少配任何一项都是全拒绝,不存在"忘配就裸奔"。
 
 ## 测试
 
