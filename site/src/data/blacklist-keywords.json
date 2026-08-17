@@ -1,0 +1,23 @@
+{
+  "_comment": "药品/器械关键词黑名单——唯一数据源。Python 入池层(homarket_scraper/blacklist.py)与站点构建层(site/src/lib/issues.js)共用;两侧都做归一化(小写、去空格点横线)后子串匹配。改关键词只改这里。",
+  "keywords": [
+    "药", "藥", "感冒", "退烧", "退燒", "止咳", "止痛", "镇痛", "消炎",
+    "抗生素", "抗菌素", "处方", "處方", "口服液", "滴剂", "滴劑", "栓剂",
+    "疗效", "療效", "治愈", "治療", "治疗",
+    "布洛芬", "对乙酰氨基酚", "對乙酰氨基酚", "扑热息痛", "阿司匹林",
+    "阿莫西林", "泰诺", "泰諾", "美林", "小儿氨酚", "感冒灵", "感冒靈",
+    "板蓝根", "板藍根", "连花清瘟", "連花清瘟",
+    "medicine", "medication", "drug", "pharmacy", "antibiotic",
+    "painrelief", "painreliever", "feverreducer", "coughsyrup",
+    "coldrelief", "coldandflu", "decongestant", "antihistamine",
+    "tylenol", "advil", "motrin", "ibuprofen", "acetaminophen",
+    "aspirin", "amoxicillin", "benadryl", "nyquil", "dayquil",
+    "buckleys", "robitussin", "claritin", "reactine", "zyrtec",
+    "gravol", "pediasure", "infantdrops", "childrensdrops",
+    "voltaren", "polysporin", "aleve", "naproxen", "tums",
+    "peptobismol", "halls", "benylin", "otrivin",
+    "器械", "体温计", "體溫計", "血压计", "血壓計", "血糖仪", "血糖儀",
+    "创可贴", "創可貼", "退热贴", "退熱貼", "雾化器", "霧化器",
+    "thermometer", "bandaid", "bandage", "nebulizer", "glucosemeter"
+  ]
+}

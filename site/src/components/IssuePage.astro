@@ -1,0 +1,265 @@
+---
+// 单期页面:商品清单 + 数量选择 + 一键复制订单 + 加微信路径 + 归因埋点。
+// 锁价过期/超14天判断在客户端做(纯前端日期判断,无定时任务)。
+import { formatCnDate } from '../lib/dates.js';
+import siteConfig from '../data/site.json';
+import Masthead from './Masthead.astro';
+
+const { issue, isLatest = false } = Astro.props;
+
+// 客户端所需的最小数据(不含任何客户信息)
+const clientData = {
+  issue: issue.issue,
+  lock_until: issue.lock_until,
+  published_at: issue.published_at,
+  is_latest: isLatest,
+  stale_days: siteConfig.stale_days,
+  items: issue.items.map(({ id, name, price_cny }) => ({ id, name, price_cny })),
+};
+
+// 商品名来自第三方页面抓取,JSON.stringify 不转义 </script>,
+// 必须 < 转义防止脚本块逃逸(XSS)
+const clientDataJson = JSON.stringify(clientData).replace(/</g, '\\u003c');
+---
+<Masthead title="本周好货" sub={issue.title}>
+  <span class="meta-dim">{formatCnDate(issue.published_at)}发布</span>
+  <span class="lock-pill">锁价至 {formatCnDate(issue.lock_until)}</span>
+</Masthead>
+
+<main>
+  <div id="expired-banner" class="banner banner-warn" hidden>
+    本期价格已失效,下单请看最新一期 → <a href="/" data-ref-link>最新一期</a>
+  </div>
+  <div id="stale-banner" class="banner banner-info" hidden>
+    本期发布已超两周,价格可能变动 → <a href="/archive/" data-ref-link>看往期存档</a>
+  </div>
+
+  {issue.greeting && <p class="greeting">{issue.greeting}</p>}
+
+  <section class="products">
+    {issue.items.map((item, index) => (
+      <article class="product-card" data-id={item.id}>
+        {item.image && (
+          <div class="thumb">
+            {item.deal && <span class="deal-badge">{item.deal}</span>}
+            <img
+              src={item.image}
+              alt={item.name}
+              width={item.image_width ?? 800}
+              height={item.image_height ?? undefined}
+              loading={index < 2 ? 'eager' : 'lazy'}
+              fetchpriority={index === 0 ? 'high' : undefined}
+              decoding={index < 2 ? 'auto' : 'async'}
+            />
+          </div>
+        )}
+        <div class="product-body">
+          {!item.image && item.deal && <span class="deal-chip">{item.deal}</span>}
+          <h2>{item.name}</h2>
+          {item.spec && <p class="spec">{item.spec}</p>}
+          <div class="price-row">
+            <span class="price-tag"><span class="yuan">¥</span>{item.price_cny}</span>
+            <span class="price-note" data-price-note>参考价 · 锁价至{formatCnDate(issue.lock_until)}</span>
+          </div>
+          {item.eta && <p class="eta">预计时效:{item.eta}</p>}
+          {item.note && <p class="note">{item.note}</p>}
+          <div class="qty-row">
+            <button type="button" class="qty-btn" data-action="minus" aria-label="减少数量">−</button>
+            <span class="qty" data-qty>0</span>
+            <button type="button" class="qty-btn" data-action="plus" aria-label="增加数量">+</button>
+          </div>
+        </div>
+      </article>
+    ))}
+  </section>
+
+  <section class="howto">
+    <h2>怎么下单</h2>
+    <ol>
+      <li>点商品右下角 <b>+</b> 选好数量</li>
+      <li>点底部「复制订单」</li>
+      <li>到微信粘贴给我;新朋友先长按二维码加我</li>
+    </ol>
+    <img class="qr" src={siteConfig.qr_image} alt="创始人微信二维码(长按识别)" width="200" height="200" loading="lazy" />
+    <p class="wechat-id">微信号:<b>{siteConfig.wechat_id}</b>(长按二维码识别)</p>
+  </section>
+
+  <section class="share-box">
+    <button type="button" id="share-btn" class="btn-ghost">复制本期链接,转发给朋友</button>
+    <p class="archive-link"><a href="/archive/" data-ref-link>看往期存档 →</a></p>
+  </section>
+
+  <p class="colophon">每周更新 · 微信个人转账 · 十年老店</p>
+</main>
+
+<div class="order-bar">
+  <span id="order-summary">还没选商品</span>
+  <button type="button" id="copy-order" class="btn-primary" disabled>复制订单</button>
+</div>
+
+<div class="sheet-mask" id="sheet-mask" hidden></div>
+<div class="sheet" id="sheet">
+  <h3 id="sheet-title"></h3>
+  <p class="sheet-hint" id="sheet-hint"></p>
+  <textarea id="sheet-text" rows="7" readonly></textarea>
+  <div class="sheet-actions">
+    <button type="button" class="btn-plain" id="sheet-close">关闭</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="application/json" id="issue-data" set:html={clientDataJson} />
+<script src="../scripts/issue-client.js"></script>
+
+<style>
+  .banner { padding: 10px 14px; border-radius: 10px; margin: 12px 0 0; font-size: 13px; }
+  .banner a { color: inherit; font-weight: 700; }
+  .banner-warn { background: var(--warn-bg); color: var(--warn-ink); }
+  .banner-info { background: var(--info-bg); color: var(--info-ink); }
+
+  .greeting { font-size: 15px; color: var(--mute); padding: 14px 4px 2px; }
+
+  .products { display: grid; gap: 12px; margin-top: 10px; }
+  .product-card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  .thumb { position: relative; }
+  .thumb img { width: 100%; height: auto; display: block; }
+  .deal-badge {
+    position: absolute; left: 0; top: 10px; z-index: 1;
+    background: var(--tag); color: var(--tag-ink);
+    font-size: 11px; font-weight: 800; letter-spacing: 0.06em;
+    padding: 3px 10px 3px 8px; border-radius: 0 999px 999px 0;
+  }
+  .deal-chip {
+    display: inline-block; background: var(--tag); color: var(--tag-ink);
+    font-size: 11px; font-weight: 800; letter-spacing: 0.06em;
+    padding: 2px 10px; border-radius: 999px; margin-bottom: 4px;
+  }
+  .product-body { padding: 12px 14px 14px; }
+  .product-body h2 { font-size: 16px; line-height: 1.45; font-weight: 700; }
+  .spec { font-size: 12.5px; color: var(--mute); margin-top: 2px; }
+  .price-row { display: flex; align-items: flex-end; gap: 8px; margin-top: 8px; }
+  .price-tag {
+    background: var(--tag); color: var(--tag-ink);
+    font-weight: 800; font-size: 20px; line-height: 1;
+    padding: 6px 10px 5px; border-radius: 6px 6px 6px 2px;
+    font-variant-numeric: tabular-nums;
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.12);
+  }
+  .price-tag .yuan { font-size: 13px; font-weight: 700; margin-right: 1px; }
+  :global(.expired) .price-tag { background: var(--line); color: var(--mute); }
+  .price-note { font-size: 11.5px; color: var(--mute); padding-bottom: 2px; }
+  .eta { font-size: 12.5px; color: var(--mute); margin-top: 7px; }
+  .note {
+    font-size: 15px; margin-top: 6px; color: var(--ink); background: var(--paper);
+    border-left: 3px solid var(--tag); padding: 5px 9px; border-radius: 0 8px 8px 0;
+  }
+  .qty-row { display: flex; align-items: center; justify-content: flex-end; gap: 14px; margin-top: 10px; }
+  .qty-btn {
+    width: 36px; height: 36px; border-radius: 50%;
+    border: 1.5px solid var(--line); background: var(--card);
+    font-size: 19px; line-height: 1; color: var(--ink);
+    transition: border-color 0.15s, background 0.15s;
+    position: relative;
+  }
+  /* 视觉 36px,触控热区扩到 48px(核心购买交互,≥44px 达标) */
+  .qty-btn::before { content: ''; position: absolute; inset: -6px; border-radius: 50%; }
+  .qty-btn:active { background: var(--paper); }
+  .qty-btn:disabled { opacity: 0.3; cursor: default; }
+  .product-card.selected { border-color: var(--maple); }
+  .product-card.selected .qty-btn[data-action="plus"] { border-color: var(--maple); color: var(--maple); }
+  .qty {
+    min-width: 24px; text-align: center; font-size: 16px; font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .howto {
+    margin-top: 22px; background: var(--card); border: 1px solid var(--line);
+    border-radius: 14px; padding: 16px;
+  }
+  .howto h2 { font-size: 15px; font-weight: 800; letter-spacing: 0.04em; }
+  .howto ol { padding-left: 20px; margin-top: 8px; font-size: 15px; color: var(--mute); }
+  .howto ol li + li { margin-top: 3px; }
+  .qr {
+    display: block; margin: 14px auto 4px;
+    border-radius: 10px; border: 1px solid var(--line); background: #fff;
+  }
+  .wechat-id { text-align: center; font-size: 13px; color: var(--mute); }
+  .wechat-id b { color: var(--ink); }
+
+  .share-box { margin-top: 14px; text-align: center; padding: 4px 0 0; }
+  .btn-ghost {
+    background: transparent; color: var(--maple);
+    border: 1.5px solid var(--maple); border-radius: 999px;
+    padding: 12px 22px; font-size: 14px; font-weight: 600;
+  }
+  .btn-ghost:active { background: var(--warn-bg); }
+  .archive-link { margin-top: 10px; font-size: 13px; }
+  .archive-link a { color: var(--mute); }
+
+  .order-bar {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 5;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    max-width: 640px; margin: 0 auto;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+    background: var(--card); border-top: 1px solid var(--line);
+  }
+  #order-summary {
+    font-size: 13.5px; color: var(--mute); font-variant-numeric: tabular-nums;
+  }
+  #order-summary :global(b) { color: var(--maple); font-size: 16px; }
+  .btn-primary {
+    background: var(--maple); color: var(--maple-fg); border: none; border-radius: 999px;
+    padding: 12px 24px; font-size: 15px; font-weight: 700; flex: none;
+    transition: background 0.15s, opacity 0.15s;
+  }
+  .btn-primary:active { background: var(--maple-deep); }
+  .btn-primary:disabled { opacity: 0.35; cursor: default; }
+  .btn-primary.done { background: var(--pine); }
+
+  .sheet-mask {
+    position: fixed; inset: 0; z-index: 8;
+    background: rgba(20, 12, 8, 0.45);
+  }
+  .sheet {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 9;
+    max-width: 640px; margin: 0 auto;
+    background: var(--card); border-radius: 18px 18px 0 0;
+    padding: 18px 16px calc(18px + env(safe-area-inset-bottom));
+    transform: translateY(102%); transition: transform 0.28s ease;
+  }
+  @media (prefers-reduced-motion: reduce) { .sheet { transition: none; } }
+  .sheet.show { transform: translateY(0); }
+  .sheet h3 { font-size: 15px; font-weight: 800; }
+  .sheet-hint { font-size: 12.5px; color: var(--mute); margin-top: 2px; }
+  .sheet-hint.warn { color: var(--warn-ink); font-weight: 600; }
+  .sheet textarea {
+    /* 16px:iOS 微信聚焦 <16px 输入框会强制缩放,降级长按复制是主转化路径 */
+    width: 100%; margin-top: 10px; padding: 12px;
+    font-family: inherit; font-size: 16px; line-height: 1.7;
+    color: var(--ink); background: var(--paper);
+    border: 1px solid var(--line); border-radius: 10px; resize: none;
+  }
+  .sheet-actions { display: flex; gap: 10px; margin-top: 12px; }
+  .btn-plain {
+    flex: 1; background: var(--paper); color: var(--mute);
+    border: 1px solid var(--line); border-radius: 999px;
+    padding: 12px 18px; font-size: 14px;
+  }
+  .btn-plain:active { background: var(--line); }
+
+  .toast {
+    position: fixed; left: 50%; top: 14%; z-index: 20;
+    transform: translateX(-50%) translateY(-8px);
+    background: var(--ink); color: var(--paper);
+    font-size: 13.5px; padding: 9px 18px; border-radius: 999px;
+    opacity: 0; pointer-events: none; transition: opacity 0.2s, transform 0.2s;
+    white-space: nowrap; max-width: 88%; overflow: hidden; text-overflow: ellipsis;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>

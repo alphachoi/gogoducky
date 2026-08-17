@@ -1,0 +1,21 @@
+---
+// 每期固定链接 /issues/12/。旧刊自动存档(锁价过期由客户端判断并禁用复制)。
+import Layout from '../../layouts/Layout.astro';
+import IssuePage from '../../components/IssuePage.astro';
+import { loadIssues } from '../../lib/issues.js';
+import siteConfig from '../../data/site.json';
+
+export function getStaticPaths() {
+  return loadIssues().map((issue) => ({
+    params: { issue: String(issue.issue) },
+    props: { issue },
+  }));
+}
+
+const { issue } = Astro.props;
+const issues = loadIssues();
+const isLatest = issues.length > 0 && issues[0].issue === issue.issue;
+---
+<Layout title={`${siteConfig.name} ${issue.title} · 本周好货`}>
+  <IssuePage issue={issue} isLatest={isLatest} />
+</Layout>

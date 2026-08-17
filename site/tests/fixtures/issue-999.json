@@ -1,0 +1,34 @@
+{
+  "issue": 999,
+  "title": "第999期(E2E测试夹具)",
+  "published_at": "2026-07-20",
+  "lock_until": "2099-12-31",
+  "fx_rate": 5.2,
+  "greeting": "E2E 测试卷首语:这周挑了 2 样。",
+  "published": true,
+  "items": [
+    {
+      "id": "p1",
+      "name": "测试商品A",
+      "image": null,
+      "price_cny": 180,
+      "price_cad_cents": 2599,
+      "spec": "1kg",
+      "eta": "3-4周",
+      "note": "",
+      "deal": "本周特价",
+      "compliance_confirmed": true
+    },
+    {
+      "id": "p2",
+      "name": "测试商品B",
+      "image": null,
+      "price_cny": 95,
+      "price_cad_cents": 1299,
+      "spec": "",
+      "eta": "",
+      "note": "",
+      "compliance_confirmed": true
+    }
+  ]
+}

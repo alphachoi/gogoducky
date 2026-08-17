@@ -1,0 +1,14 @@
+---
+// 枫红刊头:品牌行 + 大标题 + 元信息行。三个页面共用,品牌文案只此一处。
+import DuckMark from './DuckMark.astro';
+
+const { title, sub = '' } = Astro.props;
+---
+<header class="masthead">
+  <div class="brand-row">
+    <DuckMark />
+    <span>GOGODUCKY · 加拿大直邮</span>
+  </div>
+  <h1>{title}{sub && <small>{sub}</small>}</h1>
+  <div class="meta-row"><slot /></div>
+</header>

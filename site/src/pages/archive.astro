@@ -1,0 +1,85 @@
+---
+// 往期存档:非本期商品的唯一入口(设计已知取舍)。
+import Layout from '../layouts/Layout.astro';
+import Masthead from '../components/Masthead.astro';
+import { loadIssues } from '../lib/issues.js';
+import { formatCnDate } from '../lib/dates.js';
+import siteConfig from '../data/site.json';
+
+const issues = loadIssues();
+const latestNo = issues[0]?.issue;
+---
+<Layout title={`${siteConfig.name} · 往期存档`}>
+  <Masthead title="往期存档">
+    <span class="meta-dim">锁价只保当期 · 往期看个参考</span>
+  </Masthead>
+  <main class="no-bar">
+    {issues.length === 0 && <p class="empty">还没有已发布的期刊。</p>}
+    <ul class="archive-list">
+      {issues.map((issue) => (
+        <li>
+          <a
+            class={`archive-item${issue.issue === latestNo ? '' : ' past'}`}
+            href={`/issues/${issue.issue}/`}
+            data-ref-link
+            data-lock-until={issue.lock_until}
+          >
+            <span class="archive-issue-no"><small>第</small>{issue.issue}<small>期</small></span>
+            <span class="archive-meta">
+              <b>{issue.issue === latestNo ? '本周好货(当前期)' : '本周好货'}</b>
+              <span>{formatCnDate(issue.published_at)}发布 · {issue.items.length} 件好货</span>
+            </span>
+            <span class="archive-state past" data-state>已归档</span>
+          </a>
+        </li>
+      ))}
+    </ul>
+    <p class="colophon">链接自动带上你的邀请码 · 转发不丢归因</p>
+  </main>
+</Layout>
+
+<script>
+  import { isExpired } from '../lib/dates.js';
+  import { applyRefPassthrough } from '../lib/ref.js';
+
+  // 存档页也透传 ref,分享链条不断
+  applyRefPassthrough();
+
+  // 锁价状态是日期函数,静态构建定不了——客户端按今天判断
+  document.querySelectorAll('[data-lock-until]').forEach((a) => {
+    if (!isExpired(a.dataset.lockUntil)) {
+      const chip = a.querySelector('[data-state]');
+      chip.textContent = '锁价中';
+      chip.classList.remove('past');
+      chip.classList.add('live');
+    }
+  });
+</script>
+
+<style>
+  main.no-bar { padding-bottom: 28px; }
+  .empty { color: var(--mute); margin-top: 16px; }
+  .archive-list { list-style: none; display: grid; gap: 10px; margin-top: 14px; }
+  .archive-item {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    padding: 14px 16px; color: var(--ink); font-size: 14px; text-decoration: none;
+  }
+  .archive-item:active { background: var(--paper); }
+  .archive-issue-no {
+    flex: none; width: 48px; height: 48px; border-radius: 12px;
+    background: var(--maple); color: var(--maple-fg);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-weight: 900; font-size: 17px; line-height: 1.1;
+  }
+  .archive-issue-no small { font-size: 9px; font-weight: 600; letter-spacing: 0.1em; }
+  .archive-item.past .archive-issue-no { background: var(--line); color: var(--mute); }
+  .archive-meta { flex: 1; min-width: 0; }
+  .archive-meta b { display: block; font-size: 15px; }
+  .archive-meta span { font-size: 12.5px; color: var(--mute); }
+  .archive-state {
+    flex: none; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 999px;
+  }
+  .archive-state.live { background: var(--tag); color: var(--tag-ink); }
+  .archive-state.past { background: var(--paper); color: var(--mute); border: 1px solid var(--line); }
+</style>

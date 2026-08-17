@@ -1,0 +1,11 @@
+# Cloudflare Pages 配置。首次部署前:
+#   npx wrangler d1 create gogoducky-events   # 把返回的 database_id 填到下面
+#   npx wrangler d1 execute gogoducky-events --remote --file=schema.sql
+name = "gogoducky"
+pages_build_output_dir = "dist"
+compatibility_date = "2026-07-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "gogoducky-events"
+database_id = "TODO-run-wrangler-d1-create"
